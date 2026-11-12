@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#15171c">
+<title>pi mobile</title>
+<style>
+:root{
+  --bg:#15171c; --bg2:#1b1e25; --bg3:#23272f; --line:#2c313b;
+  --fg:#e6e8ec; --fg2:#9aa1ad; --fg3:#6b7280;
+  --acc:#5b9cf8; --err:#f85149; --ok:#3fb950;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{
+  background:radial-gradient(1200px 600px at 50% -10%, #1e2633 0%, var(--bg) 55%);
+  color:var(--fg);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro SC","PingFang SC","Segoe UI",Roboto,sans-serif;
+  display:flex;align-items:center;justify-content:center;
+  padding:calc(var(--safe-t) + 24px) 22px calc(var(--safe-b) + 24px);
+  overscroll-behavior:none;min-height:100dvh;
+}
+.card{width:100%;max-width:360px;display:flex;flex-direction:column;animation:fade .35s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}}
+.logo{
+  width:64px;height:64px;border-radius:18px;
+  background:linear-gradient(135deg,var(--acc),#7c5cf8);
+  display:grid;place-items:center;font-size:34px;font-weight:600;color:#fff;
+  margin:0 auto 18px;box-shadow:0 10px 30px -8px rgba(91,156,248,.55);
+  font-family:ui-serif,Georgia,serif;user-select:none;
+}
+h1{font-size:21px;font-weight:600;margin:0 0 6px;text-align:center;letter-spacing:-.01em}
+.sub{text-align:center;font-size:13px;color:var(--fg3);margin:0 0 26px;line-height:1.6}
+label.fl{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+label.fl span{font-size:11.5px;color:var(--fg3)}
+input{
+  width:100%;padding:14px 15px;background:var(--bg3);color:var(--fg);
+  border:1px solid var(--line);border-radius:13px;font:inherit;font-size:16px;
+  outline:none;transition:border-color .15s;
+}
+input:focus{border-color:var(--acc)}
+input::placeholder{color:var(--fg3)}
+button.go{
+  width:100%;padding:14px;margin-top:6px;border:0;border-radius:13px;
+  background:linear-gradient(135deg,var(--acc),#4171d6);color:#fff;
+  font:inherit;font-size:15.5px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px;
+}
+button.go:disabled{opacity:.55}
+button.ghost{
+  width:100%;padding:12px;margin-top:9px;border-radius:13px;
+  background:var(--bg3);border:1px solid var(--line);color:var(--fg2);font:inherit;font-size:14px;
+}
+.spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.msg{margin-top:13px;padding:11px 14px;border-radius:11px;font-size:13px;line-height:1.55;display:none;white-space:pre-wrap;word-break:break-word}
+.msg.show{display:block}
+.msg.err{background:#2a1717;border:1px solid #5a2a2a;color:#ffb3ad}
+.msg.ok{background:#16211a;border:1px solid #2c5a35;color:#7ee787}
+.hint{margin-top:6px;font-size:11.5px;color:var(--fg3);line-height:1.7}
+.hint code{background:var(--bg3);padding:1px 5px;border-radius:4px;font-size:11px}
+.recents{margin-top:18px}
+.recents .t{font-size:11px;color:var(--fg3);margin-bottom:6px}
+.recent{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  background:var(--bg3);border:1px solid var(--line);border-radius:11px;
+  padding:10px 12px;margin-bottom:6px;font-size:13px;color:var(--fg2);
+  font-family:ui-monospace,Menlo,monospace;
+}
+.recent:active{background:#2f3542}
+.recent span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent .del{color:var(--fg3);font-size:15px;padding:0 4px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">π</div>
+  <h1>pi mobile</h1>
+  <p class="sub" id="sub">连接到你的 pi 服务器</p>
+
+  <form id="form" novalidate>
+    <label class="fl">
+      <span>服务器地址</span>
+      <input id="url" type="text" inputmode="url" placeholder="192.168.1.10:8848"
+             autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="url">
+    </label>
+    <button class="go" type="submit" id="btn">连接</button>
+  </form>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="recents" id="recents" style="display:none">
+    <div class="t">最近连接</div>
+    <div id="recentList"></div>
+  </div>
+
+  <div class="hint">
+    支持内网地址或 VPN 地址（如 WireGuard 的 <code>10.0.0.1:8848</code>）<br>
+    需要先在该服务器上运行 <code>node server.js</code>
+  </div>
+</div>
+
+<script>
+'use strict';
+window.__APP_VERSION__ = 39;  // build.gradle 版本变了要同步改这里
+const $ = s => document.querySelector(s);
+const form = $('#form'), urlInp = $('#url'), btn = $('#btn'), msg = $('#msg');
+
+const KEY = 'pi.serverUrl';
+const KEY_HISTORY = 'pi.serverHistory';
+
+// 默认值：本机上次用的地址，或空
+urlInp.value = localStorage.getItem(KEY) || '';
+
+function show(kind, text) {
+  msg.className = 'msg show ' + kind;
+  msg.textContent = text;
+}
+function hide() { msg.className = 'msg'; msg.textContent = ''; }
+
+/** 规范化地址：补 http://、去尾斜杠 */
+function normalizeUrl(raw) {
+  let u = String(raw || '').trim();
+  if (!u) return '';
+  if (!/^https?:\/\//i.test(u)) u = 'http://' + u;
+  u = u.replace(/\/+$/, '');
+  try {
+    const parsed = new URL(u);
+    if (!parsed.hostname) return '';
+    return parsed.origin + parsed.pathname.replace(/\/+$/, '');
+  } catch { return ''; }
+}
+
+let busy = false;
+function setBusy(v) {
+  busy = v;
+  btn.disabled = v;
+  btn.innerHTML = v ? '<span class="spin"></span>连接中…' : '连接';
+}
+
+/** 验证服务器可达 */
+async function probe(baseUrl) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const r = await fetch(baseUrl + '/api/me', {
+      credentials: 'include',
+      signal: ctrl.signal,
+      cache: 'no-store',
+    });
+    clearTimeout(timer);
+    if (r.status === 404) throw new Error('该地址不是 pi-mobile 服务器（404）');
+    const d = await r.json().catch(() => ({}));
+    return { ok: true, authEnabled: !!d.authEnabled, authed: !!d.authed };
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error('连接超时，检查地址和网络');
+    throw new Error(e.message || '无法连接');
+  }
+}
+
+function saveHistory(u) {
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(KEY_HISTORY) || '[]'); } catch {}
+  list = [u, ...list.filter(x => x !== u)].slice(0, 5);
+  localStorage.setItem(KEY_HISTORY, JSON.stringify(list));
+  renderHistory();
+
+// 返回键：引导页直接退出
+window.__onAndroidBack = function () { return 'exit'; };
+}
+
+function renderHistory() {
+  const box = $('#recents'), listEl = $('#recentList');
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(KEY_HISTORY) || '[]'); } catch {}
+  if (!list.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  listEl.innerHTML = '';
+  for (const u of list) {
+    const row = document.createElement('div');
+    row.className = 'recent';
+    const span = document.createElement('span');
+    span.textContent = u;
+    span.onclick = () => { urlInp.value = u; form.requestSubmit(); };
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '×';
+    del.onclick = (e) => {
+      e.stopPropagation();
+      const next = list.filter(x => x !== u);
+      localStorage.setItem(KEY_HISTORY, JSON.stringify(next));
+      renderHistory();
+    };
+    row.append(span, del);
+    listEl.appendChild(row);
+  }
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (busy) return;
+  const url = normalizeUrl(urlInp.value);
+  if (!url) { show('err', '请输入有效的服务器地址，例如 http://192.168.1.10:8848'); urlInp.focus(); return; }
+
+  setBusy(true);
+  hide();
+  try {
+    const info = await probe(url);
+    localStorage.setItem(KEY, url);
+    saveHistory(url);
+    show('ok', info.authEnabled ? '连接成功，正在打开登录页…' : '连接成功，正在进入…');
+    // 跳到内置应用页（APK 模式：远程 base + Bearer token）
+    setTimeout(() => {
+      location.replace('app.html?server=' + encodeURIComponent(url) + '&v=' + (window.__APP_VERSION__ || 0));
+    }, 350);
+  } catch (err) {
+    setBusy(false);
+    show('err', '❌ ' + err.message);
+    urlInp.focus();
+    urlInp.select();
+  }
+}, { passive: false });
+
+urlInp.addEventListener('input', () => { if (msg.classList.contains('err')) hide(); });
+
+renderHistory();
+
+// 若已配置过且是本 App 冷启动，自动尝试跳转（用户可返回此页修改）
+(async () => {
+  const saved = localStorage.getItem(KEY);
+  if (!saved) return;
+  try {
+    await probe(saved);
+    location.replace('app.html?server=' + encodeURIComponent(saved) + '&v=' + (window.__APP_VERSION__ || 0));
+  } catch {
+    show('err', '上次的地址 ' + saved + ' 连不上，请检查网络或修改地址');
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# 依赖与构建产物
+node_modules/
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+
+# 签名密钥（不要上传）
+release.jks
+*.jks
+*.keystore
+.env
+.env.local
+
+# 系统
+.DS_Store
+*.log
