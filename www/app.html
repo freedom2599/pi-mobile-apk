@@ -2490,7 +2490,21 @@ async function loadFileDir(path) {
   try {
     const q = new URLSearchParams({ device: FB.device || 'local' });
     if (path) q.set('path', path);
-    const r = await apiFetch('/api/files?' + q);
+    // 远程设备首连可能较慢（Windows 弹窗/冷启动），给足超时 + 一次重试
+    const fetchWith = async (ms) => {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), ms);
+      try {
+        return await apiFetch('/api/files?' + q, { signal: ctl.signal });
+      } finally { clearTimeout(t); }
+    };
+    let r;
+    try {
+      r = await fetchWith(30000);
+    } catch (e1) {
+      box.innerHTML = '<div class="row"><div class="grow" style="color:var(--fg3)">连接超时，重试中…</div></div>';
+      r = await fetchWith(45000);
+    }
     if (handle401(r)) return;
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || '加载失败');
@@ -2609,7 +2623,48 @@ function renderCrumbs(el, fullPath) {
     return b;
   };
   const sepChar = isWin ? '\\' : '/';
-  el.appendChild(mk(isWin ? (parts[0] + '\\') : '/', isWin ? (parts[0] + '\\') : '/'));
+
+  // Windows：盘符做成下拉，可切到其它盘
+  if (isWin) {
+    const cur = (parts[0] || 'C:').toUpperCase();
+    const btn = document.createElement('button');
+    btn.textContent = cur + ' ▾';
+    btn.style.cssText = 'background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:11.5px;font-family:inherit;color:var(--fg);font-weight:600;max-width:80px';
+    btn.onclick = async (ev) => {
+      ev.stopPropagation();
+      const menu = document.getElementById('driveMenu');
+      if (menu) { menu.remove(); return; }
+      const m = document.createElement('div');
+      m.id = 'driveMenu';
+      m.style.cssText = 'position:fixed;z-index:300;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:3px;min-width:90px';
+      const rect = btn.getBoundingClientRect();
+      m.style.left = Math.max(8, rect.left) + 'px';
+      m.style.top = (rect.bottom + 4) + 'px';
+
+      let drives = ['C:'];
+      try {
+        const r = await apiFetch('/api/drives?device=' + encodeURIComponent(FB.device || S.device || 'local'));
+        const d = await r.json();
+        if (d.ok && d.drives && d.drives.length) drives = d.drives;
+      } catch {}
+
+      for (const dv of drives) {
+        const item = document.createElement('button');
+        item.textContent = dv;
+        item.style.cssText = 'text-align:left;padding:7px 12px;border-radius:7px;background:' +
+          (dv === cur ? 'var(--bg2)' : 'transparent') + ';border:0;color:var(--fg);font-size:13px;font-family:inherit' +
+          (dv === cur ? ';font-weight:600;color:var(--acc)' : '');
+        item.onclick = () => { m.remove(); loadFileDir(dv + '\\'); };
+        m.appendChild(item);
+      }
+      document.body.appendChild(m);
+      const close = (e) => { if (!m.contains(e.target) && e.target !== btn) { m.remove(); document.removeEventListener('click', close); } };
+      setTimeout(() => document.addEventListener('click', close), 0);
+    };
+    el.appendChild(btn);
+  } else {
+    el.appendChild(mk('/', '/'));
+  }
   let acc = isWin ? parts[0] : '';
   for (let i = isWin ? 1 : 0; i < parts.length; i++) {
     const p = parts[i];
