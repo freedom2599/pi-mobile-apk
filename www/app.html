@@ -1971,6 +1971,26 @@ function showDeviceForm(dev, banner) {
   form.appendChild(authWrap);
   setAuth(auth);
 
+  // ---- 系统类型 ----
+  const platWrap = document.createElement('div');
+  platWrap.style.cssText = 'display:flex;flex-direction:column;gap:5px';
+  const platLabel = document.createElement('div');
+  platLabel.textContent = '目标系统';
+  platLabel.style.cssText = 'font-size:11.5px;color:var(--fg3)';
+  const platSel = document.createElement('select');
+  platSel.dataset.key = 'platform';
+  platSel.style.cssText = 'background:var(--bg3);color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;font-size:14px;outline:none';
+  for (const [v, t] of [['', '自动检测'], ['posix', 'Linux / macOS'], ['win32', 'Windows']]) {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = t;
+    platSel.appendChild(o);
+  }
+  platSel.value = d.platform || '';
+  platSel.onchange = () => updatePlatformUI();
+  platWrap.append(platLabel, platSel);
+  form.appendChild(platWrap);
+
   // ---- 提权到 root ----
   const escWrap = document.createElement('label');
   escWrap.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:11px 12px;cursor:pointer';
@@ -1989,6 +2009,14 @@ function showDeviceForm(dev, banner) {
   if (escChk.checked) escWrap.style.borderColor = 'var(--acc)';
   form.appendChild(escWrap);
 
+  // Windows 下没有 sudo，隐藏提权选项
+  function updatePlatformUI() {
+    const win = platSel.value === 'win32';
+    escWrap.style.display = win ? 'none' : 'flex';
+    if (win) escChk.checked = false;
+  }
+  updatePlatformUI();
+
   // 结果区
   const result = document.createElement('div');
   result.id = 'devFormResult';
@@ -1998,6 +2026,7 @@ function showDeviceForm(dev, banner) {
 
   const collect = () => {
     const o = { authMethod: auth, escalate: escChk.checked };
+    if (platSel.value) o.platform = platSel.value;
     for (const el of form.querySelectorAll('[data-key]')) {
       const v = el.value.trim();
       if (v) o[el.dataset.key] = v;
