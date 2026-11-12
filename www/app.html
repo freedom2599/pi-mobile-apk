@@ -2580,14 +2580,27 @@ async function copyText(text) {
   } catch { return false; }
 }
 
+/** 清理路径显示：Windows 不显示 // 前缀 */
+function cleanPathLabel(p) {
+  let t = String(p || '');
+  if (/^\/+[A-Za-z]:/.test(t)) t = t.replace(/^\/+/, '');   // //C:\ → C:\
+  return t || '/';
+}
+
 function joinPath(dir, name) {
-  if (!dir) return '/' + name;
-  return dir.replace(/\/+$/, '') + '/' + name;
+  // Windows 路径用反斜杠
+  const isWin = /^[A-Za-z]:/.test(dir || '') || /^\\\\/.test(dir || '');
+  const sep = isWin ? '\\' : '/';
+  if (!dir) return sep + name;
+  return String(dir).replace(/[\\/]+$/, '') + sep + name;
 }
 
 function renderCrumbs(el, fullPath) {
   el.innerHTML = '';
-  const parts = String(fullPath || '/').split('/').filter(Boolean);
+  const raw = cleanPathLabel(fullPath);
+  const isWin = /^[A-Za-z]:/.test(raw) || /^\\\\/.test(raw);
+  // Windows: C:\Users\Administrator -> ['C:', 'Users', 'Administrator']
+  const parts = raw.split(/[\\/]/).filter(Boolean);
   const mk = (label, target) => {
     const b = document.createElement('button');
     b.textContent = label;
@@ -2595,12 +2608,14 @@ function renderCrumbs(el, fullPath) {
     b.onclick = () => loadFileDir(target);
     return b;
   };
-  el.appendChild(mk('/', '/'));
-  let acc = '';
-  for (const p of parts) {
-    acc += '/' + p;
+  const sepChar = isWin ? '\\' : '/';
+  el.appendChild(mk(isWin ? (parts[0] + '\\') : '/', isWin ? (parts[0] + '\\') : '/'));
+  let acc = isWin ? parts[0] : '';
+  for (let i = isWin ? 1 : 0; i < parts.length; i++) {
+    const p = parts[i];
+    acc = isWin ? (acc.replace(/\\+$/, '') + '\\' + p) : (acc + '/' + p);
     const sep = document.createElement('span');
-    sep.textContent = '/';
+    sep.textContent = sepChar;
     sep.style.cssText = 'color:var(--fg3);font-size:11px';
     el.appendChild(sep);
     el.appendChild(mk(p, acc));
