@@ -104,7 +104,8 @@ button.ghost{
 
 <script>
 'use strict';
-window.__APP_VERSION__ = 39;  // build.gradle 版本变了要同步改这里
+window.__APP_VERSION__ = 40;          // versionCode（用于比较）
+window.__APP_VERSION_NAME__ = '0.41';  // versionName（用于显示）
 const $ = s => document.querySelector(s);
 const form = $('#form'), urlInp = $('#url'), btn = $('#btn'), msg = $('#msg');
 
@@ -215,7 +216,7 @@ form.addEventListener('submit', async (e) => {
     show('ok', info.authEnabled ? '连接成功，正在打开登录页…' : '连接成功，正在进入…');
     // 跳到内置应用页（APK 模式：远程 base + Bearer token）
     setTimeout(() => {
-      location.replace('app.html?server=' + encodeURIComponent(url) + '&v=' + (window.__APP_VERSION__ || 0));
+      location.replace('app.html?server=' + encodeURIComponent(url) + '&v=' + (window.__APP_VERSION__ || 0) + '&vn=' + encodeURIComponent(window.__APP_VERSION_NAME__ || ''));
     }, 350);
   } catch (err) {
     setBusy(false);
@@ -235,7 +236,7 @@ renderHistory();
   if (!saved) return;
   try {
     await probe(saved);
-    location.replace('app.html?server=' + encodeURIComponent(saved) + '&v=' + (window.__APP_VERSION__ || 0));
+    location.replace('app.html?server=' + encodeURIComponent(saved) + '&v=' + (window.__APP_VERSION__ || 0) + '&vn=' + encodeURIComponent(window.__APP_VERSION_NAME__ || ''));
   } catch {
     show('err', '上次的地址 ' + saved + ' 连不上，请检查网络或修改地址');
   }

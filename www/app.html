@@ -1622,7 +1622,8 @@ function openSettings() {
     // ---- 应用 ----
     box.appendChild(mkSecTitle('应用'));
     box.appendChild(mkSetRow('⟳', '检查更新',
-      '当前 v0.' + (S.appVersion || '?') + (S.remoteVersion ? ' · 最新 v' + (S.remoteVersion.versionName || '?') : ''),
+      versionLabel(S.appVersion, S.appVersionName) +
+        (S.remoteVersion ? ' · 最新 v' + (S.remoteVersion.versionName || '?') : ''),
       () => { closePage(); setTimeout(() => checkUpdate(true), 220); }));
     box.appendChild(mkSetRow('🧹', '清空界面', '仅清除显示，不影响会话内容',
       () => { clearLog(); closePage(); toast('界面已清空'); }));
@@ -1656,7 +1657,7 @@ function openSettings() {
     const about = document.createElement('div');
     about.className = 'set-note';
     about.innerHTML =
-      'π mobile · <code>v0.' + (S.appVersion || '?') + '</code><br>' +
+      'π mobile · <code>' + esc(versionLabel(S.appVersion, S.appVersionName)) + '</code><br>' +
       '服务器 <code>' + esc(S.apiBase || location.origin) + '</code><br>' +
       '设备 <code>' + esc(S.device || 'local') + '</code>';
     box.appendChild(about);
@@ -2765,7 +2766,7 @@ function openStatus() {
       ['压缩中', st.isCompacting ? '是' : '否'],
       ['会话文件', (st.sessionFile || S.currentPath) ? String(st.sessionFile || S.currentPath).split('/').pop() : '（新会话）'],
       ['工作目录', st.cwd || '—'],
-      ['版本', 'v0.' + (S.appVersion || '?')],
+      ['版本', versionLabel(S.appVersion, S.appVersionName)],
     ];
 
     const list = document.createElement('div');
@@ -2814,6 +2815,13 @@ function openStatus() {
   S.ws?.send(JSON.stringify({ t: 'get_state' }));
 }
 
+/** 版本展示：优先 versionName（0.4），没有则用 v0.<code> */
+function versionLabel(code, name) {
+  if (name) return 'v' + name;
+  const n = Number(code || 0);
+  return n ? 'v0.' + n : 'v?';
+}
+
 // ---------------------------------------------------------------- 更新检查
 /** 比对版本，返回是否有新版 */
 async function checkUpdate(manual) {
@@ -2838,7 +2846,7 @@ async function checkUpdate(manual) {
   }
   const remote = Number(info.versionCode || 0);
   if (remote <= cur) {
-    if (manual) toast('已是最新版本 ' + (info.versionName || ('v0.' + cur)));
+    if (manual) toast('已是最新版本 ' + (info.versionName || versionLabel(cur, S.appVersionName)));
     return info;
   }
 
@@ -2885,7 +2893,7 @@ function showUpdateDialog(info, customMsg, force) {
   if (force) {
     const why = document.createElement('div');
     why.style.cssText = 'font-size:12px;color:#ffb3ad;background:rgba(90,42,42,.35);border:1px solid #5a2a2a;border-radius:9px;padding:9px 12px;margin-bottom:10px;line-height:1.6';
-    why.textContent = '当前版本 v0.' + (S.appVersion || '?') + ' 已落后 ' +
+    why.textContent = '当前版本 ' + versionLabel(S.appVersion, S.appVersionName) + ' 已落后 ' +
       (Number(info.versionCode) - Number(S.appVersion || 0)) + ' 个版本，' +
       '旧版本可能存在已修复的问题，请更新后继续使用。';
     box.appendChild(why);
@@ -3198,6 +3206,9 @@ function showUiRequest(rec) {
   S.apiBase = String(base).replace(/\/+$/, '');
   // APK 版本号：从 query 或 window 全局取
   S.appVersion = Number(params.get('v') || (typeof window.__APP_VERSION__ === 'number' ? window.__APP_VERSION__ : 0)) || 0;
+  // 展示用版本名（0.4），与用于比较的 versionCode（39）分开
+  S.appVersionName = params.get('vn') ||
+    (typeof window.__APP_VERSION_NAME__ === 'string' ? window.__APP_VERSION_NAME__ : '');
   localStorage.setItem('pi.server', S.apiBase);
   const tok = params.get('token');
   if (tok) {
