@@ -6,7 +6,13 @@
 
 ## 下载
 
-最新版本在 [Releases](https://github.com/freedom2599/pi-mobile-apk/releases/latest)。
+本仓库只放源码，不发成品 APK。安装包由服务端分发：
+
+```
+http://<服务器IP>:8848/download/pi-mobile-<版本>.apk
+```
+
+当前版本见服务端 `/api/version`。
 
 ## 结构
 
